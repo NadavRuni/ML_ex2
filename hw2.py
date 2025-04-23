@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 ### Chi square table values ###
 # The first key is the degree of freedom 
 # The second key is the p-value cut-off
@@ -73,8 +74,19 @@ def calc_gini(data):
     - gini: The gini impurity value.
     """
     gini = 0.0
+
     ###########################################################################
-    # TODO: Implement the function.                                           #
+    # TODO: Implement the function.
+    from collections import Counter
+            
+    arrayOfColumnLabel = [row[-1] for row in data]
+    numberOfTotalSamples = len(arrayOfColumnLabel) 
+    labelCountsDict = Counter(arrayOfColumnLabel)
+    sumOfSquaredProportions=0
+    for label, count in labelCountsDict.items():
+        proportion = count / numberOfTotalSamples
+        sumOfSquaredProportions += proportion ** 2
+    gini = 1.0-sumOfSquaredProportions                                         #
     ###########################################################################
     pass
     ###########################################################################
@@ -94,7 +106,21 @@ def calc_entropy(data):
     """
     entropy = 0.0
     ###########################################################################
-    # TODO: Implement the function.                                           #
+    # TODO: Implement the function.  
+    #    from collections import Counter
+    labels = [row[-1] for row in data]
+
+    _, counts = np.unique(labels, return_counts=True) # |c|
+    total_labels = len(labels) # |S|
+    from collections import Counter
+
+    labelCountsDict = Counter(labels)
+    
+    for label, count in labelCountsDict.items():
+        proportion = count / total_labels
+        entropy -= proportion*np.log2(proportion) #count is |Si|
+
+    entropy = round(float(entropy), 16)                                  
     ###########################################################################
     pass
     ###########################################################################
@@ -129,7 +155,16 @@ class DecisionNode:
         """
         pred = None
         ###########################################################################
-        # TODO: Implement the function.                                           #
+        # TODO: Implement the function.     
+        from collections import Counter
+        labelCountsDict = Counter([row[-1] for row in self.data]) 
+        mostCommonfeature=""
+        mostCommonfeatureNumber=0
+        for label, count in labelCountsDict.items():
+            if(mostCommonfeatureNumber<count):
+                mostCommonfeatureNumber=count
+                mostCommonfeature=label
+        pred = mostCommonfeature
         ###########################################################################
         pass
         ###########################################################################
@@ -144,13 +179,15 @@ class DecisionNode:
         This function has no return value
         """
         ###########################################################################
-        # TODO: Implement the function.                                           #
+        # TODO: Implement the function.    
+        self.children.append(node)
+        self.children_values.append(val)
         ###########################################################################
         pass
         ###########################################################################
         #                             END OF YOUR CODE                            #
         ###########################################################################
-    
+
     def goodness_of_split(self, feature):
         """
         Calculate the goodness of split of a dataset given a feature and impurity function.
@@ -167,6 +204,35 @@ class DecisionNode:
         groups = {} # groups[feature_value] = data_subset
         ###########################################################################
         # TODO: Implement the function.                                           #
+        from collections import defaultdict
+        groups = defaultdict(list)
+        for row in self.data:
+            value = row[feature]
+            if value not in groups:
+                groups[value] = []
+            groups[value].append(row)
+
+        totalSize = len (self.data)
+        sigma=0
+
+        if not self.gain_ratio:
+            totalSize = len (self.data)
+            for data_subset in groups.values():
+                sigma+=(len(data_subset)/totalSize)*self.impurity_func(data_subset)
+
+            goodness = self.impurity_func(self.data)-sigma
+
+        else:
+            splitInfo = 0
+            for values in groups.values():
+                sigma +=(len(values)/totalSize)* calc_entropy(self.data)
+                splitInfo -= (len(values)/totalSize)* np.log2(len(values)/totalSize)
+            informationGain = calc_entropy(self.data) - sigma
+            if(not splitInfo):
+                goodness = 0
+            else:
+                goodness = informationGain / splitInfo
+
         ###########################################################################
         pass
         ###########################################################################
@@ -202,6 +268,27 @@ class DecisionNode:
         """
         ###########################################################################
         # TODO: Implement the function.                                           #
+        bestGoodness = -1
+        bestFeature = None
+        bestDataSubset = None
+
+        for feature in self.db:
+            goodness, groups = self.goodness_of_split(feature)
+            print("the goodness is " + str(goodness) + " of feature " + str(feature))
+            if goodness > bestGoodness:
+                bestGoodness = goodness
+                bestFeature = feature
+                bestDataSubset = groups
+        # Stopping condition – leaf node
+        if bestGoodness <= 0 or self.depth >= self.max_depth:
+            self.terminal = True
+            return
+        self.feature = bestFeature
+        for featureKind,data_subset in bestDataSubset.items():
+            childNode=DecisionNode(data_subset,self.impurity_func,featureKind,self.depth+1,self.chi,self.max_depth,self.gain_ratio)
+            self.add_child(childNode,featureKind)
+
+
         ###########################################################################
         pass
         ###########################################################################
